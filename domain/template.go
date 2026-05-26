@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"github.com/phi42/ad-plugin-arch-go/rule"
+	"github.com/phi42/ad-enforcement-tool/rule"
 
 	"bufio"
 	"bytes"

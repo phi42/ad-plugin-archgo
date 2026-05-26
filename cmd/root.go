@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/phi42/ad-enforcement-tool/rule"
 	"github.com/phi42/ad-plugin-arch-go/domain"
-	"github.com/phi42/ad-plugin-arch-go/rule"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 )
