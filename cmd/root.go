@@ -42,7 +42,7 @@ func setupPluginLogger() {
 
 func Execute() {
 	if len(os.Args) == 2 && os.Args[1] == "--info" {
-		fmt.Println(`{"modes":["compile"]}`)
+		fmt.Println(`{"modes":["compile"],"config_prefix":"arch-go"}`)
 		os.Exit(0)
 	}
 	if err := rootCmd.Execute(); err != nil {
@@ -70,7 +70,7 @@ func run() error {
 		}
 	}
 
-	outDir := spec.GetOutputDir()
+	outDir := spec.GetPluginConfig()["output-dir"]
 	if outDir == "" {
 		outDir = "."
 	}
