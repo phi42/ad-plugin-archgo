@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,26 +17,11 @@ var rootCmd = &cobra.Command{
 	Use:   "arch-go",
 	Short: "Arch-Go code generator for ADR-based DSL rules",
 	Run: func(cmd *cobra.Command, args []string) {
-		setupPluginLogger()
 		if err := run(); err != nil {
-			slog.Error("plugin failed", "error", err)
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
 	},
-}
-
-func setupPluginLogger() {
-	level := slog.LevelInfo
-	skipWarn := false
-	switch os.Getenv("ADE_LOG_LEVEL") {
-	case "debug":
-		level = slog.LevelDebug
-	case "quiet":
-		level = slog.LevelError
-	case "no-warnings":
-		skipWarn = true
-	}
-	slog.SetDefault(slog.New(newCLIHandler(os.Stderr, level, skipWarn)))
 }
 
 func Execute() {
@@ -66,7 +50,7 @@ func run() error {
 	// generates tests for code rules; file and custom rules are skipped.
 	for _, r := range spec.Rules {
 		if r.GetIsFileRule() || r.GetIsCustomRule() {
-			slog.Warn(fmt.Sprintf("rule %q skipped (arch-go handles code rules only)", r.GetName()))
+			fmt.Fprintf(os.Stderr, "warn: rule %q skipped (arch-go handles code rules only)\n", r.GetName())
 		}
 	}
 
@@ -108,7 +92,7 @@ func run() error {
 		return fmt.Errorf("writing %s: %w", outPath, err)
 	}
 
-	slog.Info(fmt.Sprintf("generated %s for rules in ADR [%s]", filepath.Base(outPath), adr.Title))
+	fmt.Fprintf(os.Stderr, "generated %s for rules in ADR [%s]\n", filepath.Base(outPath), adr.Title)
 	return nil
 }
 
