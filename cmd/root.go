@@ -29,6 +29,10 @@ func Execute() {
 		fmt.Println(`{"modes":["compile"],"config_prefix":"arch-go"}`)
 		os.Exit(0)
 	}
+	if fi, err := os.Stdin.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) != 0 {
+		_ = rootCmd.Help()
+		os.Exit(0)
+	}
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
