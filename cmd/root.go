@@ -45,9 +45,9 @@ func run() error {
 		return fmt.Errorf("reading stdin: %w", err)
 	}
 
-	var spec rule.SpecIR
+	var spec rule.Spec
 	if err := proto.Unmarshal(payload, &spec); err != nil {
-		return fmt.Errorf("cannot unmarshal protobuf SpecIR: %w", err)
+		return fmt.Errorf("cannot unmarshal protobuf Spec: %w", err)
 	}
 
 	// Warn about any rules this plugin does not handle. arch-go only

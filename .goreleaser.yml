@@ -42,7 +42,7 @@ changelog:
 release:
   github:
     owner: phi42
-    name: ad-plugin-arch-go
+    name: ad-plugin-archgo
   draft: false
   prerelease: auto
   replace_existing_artifacts: true

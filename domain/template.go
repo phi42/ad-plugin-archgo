@@ -66,10 +66,10 @@ type tmplData struct {
 	HasRules     bool
 }
 
-// resolveTarget resolves a rule.TargetRefIR to a Go package pattern suitable for arch-go.
+// resolveTarget resolves a rule.TargetRef to a Go package pattern suitable for arch-go.
 // For scoped subjects ("class in Domain"), the scope pattern is used as the package.
 // "regex:" prefixes on inline match patterns are stripped since arch-go uses glob patterns.
-func resolveTarget(target *rule.TargetRefIR, selMap map[string]*rule.SelectorIR) (string, error) {
+func resolveTarget(target *rule.TargetRef, selMap map[string]*rule.Selector) (string, error) {
 	if target == nil {
 		return "", fmt.Errorf("target is nil")
 	}
@@ -88,12 +88,12 @@ func resolveTarget(target *rule.TargetRefIR, selMap map[string]*rule.SelectorIR)
 	return "", fmt.Errorf("unknown selector %q", target.Value)
 }
 
-// BuildTemplateData converts a rule.SpecIR into template data for arch-go test generation.
+// BuildTemplateData converts a rule.Spec into template data for arch-go test generation.
 // modulePath is the Go module path of the target project (from go.mod).
 // Rules that cannot be expressed in arch-go are collected in SkippedRules and
 // emitted as comments in the generated file.
-func BuildTemplateData(spec *rule.SpecIR, modulePath string) (*tmplData, error) {
-	selMap := make(map[string]*rule.SelectorIR, len(spec.Selectors))
+func BuildTemplateData(spec *rule.Spec, modulePath string) (*tmplData, error) {
+	selMap := make(map[string]*rule.Selector, len(spec.Selectors))
 	for _, s := range spec.Selectors {
 		selMap[s.Name] = s
 	}
