@@ -1,4 +1,4 @@
-module github.com/phi42/ad-plugin-arch-go
+module github.com/phi42/ad-plugin-archgo
 
 go 1.25.5
 

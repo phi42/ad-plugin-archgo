@@ -1,21 +1,31 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	"github.com/phi42/ad-enforcement-tool/rule"
-	"github.com/phi42/ad-plugin-arch-go/domain"
+	"github.com/phi42/ad-plugin-archgo/archgo"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 )
 
+type pluginInfo struct {
+	Modes        []string `json:"modes"`
+	ConfigPrefix string   `json:"config_prefix"`
+}
+
+var info = pluginInfo{
+	Modes:        []string{"compile"},
+	ConfigPrefix: "archgo",
+}
+
 var rootCmd = &cobra.Command{
-	Use:   "arch-go",
-	Short: "Arch-Go code generator for ADR-based DSL rules",
+	Use:   "Install this plugin using `ade plugin install` and then run it via `ade compile`",
+	Short: "archgo code generator for ADR rules (code rules only)",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := run(); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -26,7 +36,12 @@ var rootCmd = &cobra.Command{
 
 func Execute() {
 	if len(os.Args) == 2 && os.Args[1] == "--info" {
-		fmt.Println(`{"modes":["compile"],"config_prefix":"arch-go"}`)
+		out, err := json.Marshal(info)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: marshaling plugin info: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(string(out))
 		os.Exit(0)
 	}
 	if fi, err := os.Stdin.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) != 0 {
@@ -39,7 +54,7 @@ func Execute() {
 }
 
 func run() error {
-	// read and parse intermediate representation
+	// read protobuf Spec from stdin
 	payload, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return fmt.Errorf("reading stdin: %w", err)
@@ -47,64 +62,65 @@ func run() error {
 
 	var spec rule.Spec
 	if err := proto.Unmarshal(payload, &spec); err != nil {
-		return fmt.Errorf("cannot unmarshal protobuf Spec: %w", err)
+		return fmt.Errorf("unmarshal Spec protobuf: %w", err)
 	}
 
-	// Warn about any rules this plugin does not handle. arch-go only
-	// generates tests for code rules; file and custom rules are skipped.
+	var skipped int
 	for _, r := range spec.Rules {
 		if r.GetIsFileRule() || r.GetIsCustomRule() {
-			fmt.Fprintf(os.Stderr, "warn: rule %q skipped (arch-go handles code rules only)\n", r.GetName())
+			skipped++
 		}
 	}
+	if skipped > 0 {
+		fmt.Fprintf(os.Stderr, "warn: %d rule(s) skipped (plugin can only handle code rules)\n", skipped)
+	}
 
+	return runCompile(&spec)
+}
+
+func runCompile(spec *rule.Spec) error {
 	outDir := spec.GetPluginConfig()["output-dir"]
 	if outDir == "" {
 		outDir = "."
 	}
 
-	// Detect the Go module path from the target project's go.mod.
-	// Walk up from the output directory so the generated config.Load() call
-	// references the correct module, not the ADE module.
-	modulePath, err := domain.DetectModulePath(outDir)
+	// Detect the Go module path from the target project's go.mod by walking up
+	// from the output directory, so the generated config.Load() call references
+	// the target module rather than the ADE module.
+	modulePath, err := archgo.DetectModulePath(outDir)
 	if err != nil {
-		return fmt.Errorf("cannot detect module path from %q (no go.mod found): %w", outDir, err)
+		return fmt.Errorf("detecting module path from %q: %w", outDir, err)
 	}
 
-	// build template data based on IR and parse with template file
-	td, err := domain.BuildTemplateData(&spec, modulePath)
+	td, err := archgo.BuildArchGoTemplateData(spec, modulePath)
 	if err != nil {
 		return fmt.Errorf("building template data: %w", err)
 	}
 
-	output, err := domain.ParseTemplate(td)
+	content, err := archgo.RenderArchGoTemplate(td)
 	if err != nil {
-		return fmt.Errorf("parsing template: %w", err)
+		return fmt.Errorf("rendering template: %w", err)
 	}
 
-	// write output to file
-	adr := spec.GetAdr()
-	adrID := "UNKNOWN"
-	if adr != nil && adr.GetId() != "" {
-		adrID = adr.GetId()
+	filename, err := writeGeneratedFile(spec, outDir, content)
+	if err != nil {
+		return fmt.Errorf("writing generated test to file: %w", err)
 	}
 
-	fileName := fmt.Sprintf("ADR_%s_archgo_test.go", sanitizeFileToken(adrID))
-
-	outPath := filepath.Join(outDir, fileName)
-	if err := os.WriteFile(outPath, output, 0o644); err != nil {
-		return fmt.Errorf("writing %s: %w", outPath, err)
-	}
-
-	fmt.Fprintf(os.Stderr, "generated %s for rules in ADR [%s]\n", filepath.Base(outPath), adr.Title)
+	fmt.Fprintf(os.Stderr, "generated %s for rules in ADR [%s]\n", filename, spec.GetAdr().GetTitle())
 	return nil
 }
 
-var nonFileToken = regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
-
-func sanitizeFileToken(s string) string {
-	if s == "" {
-		return "UNKNOWN"
+// writeGeneratedFile creates outDir if needed and writes content to outDir/filename.
+func writeGeneratedFile(spec *rule.Spec, outDir string, content []byte) (string, error) {
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return "", fmt.Errorf("creating output directory %q: %w", outDir, err)
 	}
-	return nonFileToken.ReplaceAllString(s, "_")
+
+	filename := archgo.GenFileName(spec.GetAdr().GetId())
+	outPath := filepath.Join(outDir, filename)
+	if err := os.WriteFile(outPath, content, 0o644); err != nil {
+		return "", fmt.Errorf("writing %s: %w", outPath, err)
+	}
+	return filename, nil
 }
