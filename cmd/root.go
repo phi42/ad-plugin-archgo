@@ -20,7 +20,7 @@ type pluginInfo struct {
 }
 
 // Version is set at build time via -ldflags.
-var Version = "0.1.2-dev"
+var Version = "0.1.3-dev"
 
 var info = pluginInfo{
 	Modes:        []string{"compile"},
@@ -29,7 +29,7 @@ var info = pluginInfo{
 
 var rootCmd = &cobra.Command{
 	Use:   "Install this plugin using `ade plugin install` and then run it via `ade compile`",
-	Short: "archgo code generator for ADR rules (code rules only)",
+	Short: "Arch-Go code generator for ADR rules (code rules only)",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := run(); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
